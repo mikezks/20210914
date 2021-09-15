@@ -1,7 +1,12 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
 /* eslint-disable @angular-eslint/no-empty-lifecycle-method */
 import {Component, OnInit} from '@angular/core';
-import {FlightService} from '@flight-workspace/flight-lib';
+import {Flight} from '@flight-workspace/flight-lib';
+import { Select, Store } from '@ngxs/store';
+import { patch } from '@ngxs/store/operators';
+import { Observable } from 'rxjs';
+import { FlightsLoad, FlightUpdate } from '../+state/flight-booking.actions';
+import { FlightBookingState } from '../+state/flight-booking.state';
 
 @Component({
   selector: 'flight-search',
@@ -14,9 +19,7 @@ export class FlightSearchComponent implements OnInit {
   to = 'Graz'; // in Austria
   urgent = false;
 
-  get flights() {
-    return this.flightService.flights;
-  }
+  @Select(FlightBookingState.getFlights) flights$!: Observable<Flight[]>;
 
   // "shopping basket" with selected flights
   basket: { [id: number]: boolean } = {
@@ -24,8 +27,7 @@ export class FlightSearchComponent implements OnInit {
     5: true
   };
 
-  constructor(
-    private flightService: FlightService) {
+  constructor(private store: Store) {
   }
 
   ngOnInit() {
@@ -34,12 +36,25 @@ export class FlightSearchComponent implements OnInit {
   search(): void {
     if (!this.from || !this.to) return;
 
-    this.flightService
-      .load(this.from, this.to, this.urgent);
+    this.store.dispatch(
+      new FlightsLoad(
+        this.from, this.to
+      )
+    );
   }
 
-  delay(): void {
-    this.flightService.delay();
+  delay(flight: Flight): void {
+    this.store.dispatch(
+      new FlightUpdate({
+          ...flight,
+          date: addMinutesToDate(flight.date, 15).toISOString(),
+          delayed: true
+      })
+    );
   }
-
 }
+
+export const addMinutesToDate = (date: Date | string, minutes: number): Date => {
+  const dateObj = date instanceof Date ? date : new Date(date);
+  return new Date(dateObj.getTime() + minutes * 60 * 1_000);
+};
